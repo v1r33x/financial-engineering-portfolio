@@ -1,10 +1,8 @@
-# ================================================================
+
 # ASML OPTIONS PRICING ENGINE
 # Comparing: GARCH(1,1) vs Historical Vol vs Implied Vol
 # Data: Yahoo Finance (quantmod) | Maturities: 30 / 60 / 90 days
-# ================================================================
 
-# --- 0. Setup ---------------------------------------------------
 packages <- c("RQuantLib", "quantmod", "rugarch", "ggplot2",
               "dplyr", "tidyr", "gridExtra", "zoo")
 installed <- packages %in% rownames(installed.packages())
@@ -21,9 +19,9 @@ library(zoo)
 
 set.seed(42)
 
-# ================================================================
+
 # SECTION 1: FETCH ASML DATA FROM YAHOO FINANCE
-# ================================================================
+
 cat("=== Fetching ASML data from Yahoo Finance ===\n")
 
 # ASML trades as ASML.AS on Euronext Amsterdam
@@ -44,11 +42,11 @@ cat("Number of trading days    :", nrow(returns), "\n")
 cat("Date range                :", as.character(index(returns)[1]),
     "to", as.character(index(returns)[nrow(returns)]), "\n\n")
 
-# ================================================================
-# SECTION 2: VOLATILITY ESTIMATION
-# ================================================================
 
-# --- 2a. Historical Volatility ----------------------------------
+# SECTION 2: VOLATILITY ESTIMATION
+
+
+# 2a. Historical Volatility 
 # Annualised std dev of log returns over full 1-year window
 hist_vol_annual <- as.numeric(sd(returns)) * sqrt(252)
 
@@ -60,7 +58,6 @@ roll_vol <- rollapply(returns, width = 30,
 cat("=== Volatility Estimates ===\n")
 cat("Historical Vol (1yr)      :", round(hist_vol_annual, 4), "\n")
 
-# --- 2b. GARCH(1,1) Fit & Forecast ------------------------------
 # Specify GARCH(1,1) with normal innovations
 spec <- ugarchspec(
   variance.model = list(model = "sGARCH", garchOrder = c(1, 1)),
@@ -102,9 +99,8 @@ cat("30-day horizon            :", round(garch_vol[["30"]], 4), "\n")
 cat("60-day horizon            :", round(garch_vol[["60"]], 4), "\n")
 cat("90-day horizon            :", round(garch_vol[["90"]], 4), "\n")
 
-# ================================================================
+
 # SECTION 3: PRICING FUNCTIONS
-# ================================================================
 
 bs_price <- function(S, K, T, r, sigma) {
   as.numeric(tryCatch(
@@ -134,10 +130,10 @@ get_greeks <- function(S, K, T, r, sigma) {
        vega=as.numeric(opt$vega),   theta=as.numeric(opt$theta))
 }
 
-# ================================================================
+
 # SECTION 4: BUILD PRICING SURFACE
 # Strike range: ±20% around spot, 11 strikes
-# ================================================================
+
 strikes    <- round(seq(S * 0.80, S * 1.20, length.out = 11), 0)
 maturities <- c(30, 60, 90)
 
@@ -152,7 +148,6 @@ all_data <- do.call(rbind, lapply(maturities, function(days) {
   
   do.call(rbind, lapply(strikes, function(K) {
     
-    # --- Prices under each vol method ---
     price_garch <- bs_price(S, K, T_i, r, garch_s)
     price_hist  <- bs_price(S, K, T_i, r, hist_s)
     
@@ -192,9 +187,9 @@ print(all_data %>% select(Maturity, Strike, Moneyness,
                           GARCH_Vol, Hist_Vol, IV,
                           Price_GARCH, Price_Hist, Price_IV, Price_MC))
 
-# ================================================================
+
 # SECTION 5: PLOTS
-# ================================================================
+
 
 # --- Plot 1: ASML Price + Rolling Vol (data quality check) ------
 prices_df <- data.frame(
@@ -232,7 +227,7 @@ p_rollvol <- ggplot(roll_df, aes(x = Date, y = RollVol)) +
   theme_minimal(base_size = 11) +
   theme(plot.title = element_text(face = "bold"))
 
-# --- Plot 2: GARCH Volatility Forecast Term Structure -----------
+
 fc_df <- data.frame(
   Day     = 1:90,
   GARCH   = sigma_daily * sqrt(252),
@@ -256,7 +251,7 @@ p_garch_fc <- ggplot(fc_df, aes(x = Day)) +
   theme_minimal(base_size = 11) +
   theme(plot.title = element_text(face = "bold"))
 
-# --- Plot 3: Price Comparison — GARCH vs Hist vs IV (all maturities) ---
+#  Price Comparison — GARCH vs Hist vs IV (all maturities) ---
 price_long <- all_data %>%
   select(Maturity, Strike, Price_GARCH, Price_Hist, Price_IV) %>%
   pivot_longer(cols = c(Price_GARCH, Price_Hist, Price_IV),
@@ -286,7 +281,7 @@ p_compare <- ggplot(price_long, aes(x = Strike, y = Price, color = Method)) +
   theme_minimal(base_size = 11) +
   theme(plot.title = element_text(face = "bold"))
 
-# --- Plot 4: Vol Method Comparison by Maturity ------------------
+# Plot 4: Vol Method Comparison by Maturity 
 vol_comp <- data.frame(
   Maturity = c("30d", "60d", "90d"),
   GARCH    = unlist(garch_vol),
@@ -305,7 +300,7 @@ p_vol_comp <- ggplot(vol_comp, aes(x = Maturity, y = Vol, fill = Method)) +
   theme_minimal(base_size = 11) +
   theme(plot.title = element_text(face = "bold"))
 
-# --- Plot 5: Pricing Difference — GARCH minus Historical --------
+#  Plot 5: Pricing Difference — GARCH minus Historical
 diff_df <- all_data %>%
   mutate(Price_Diff = Price_GARCH - Price_Hist)
 
@@ -324,7 +319,7 @@ p_diff <- ggplot(diff_df, aes(x = Strike, y = Price_Diff, color = Maturity)) +
   theme_minimal(base_size = 11) +
   theme(plot.title = element_text(face = "bold"))
 
-# --- Plot 6: Greeks across strikes (GARCH vol, 30d) -------------
+#  Plot 6: Greeks across strikes (GARCH vol, 30d) 
 greeks_30 <- all_data %>%
   filter(Days == 30) %>%
   select(Strike, Delta, Gamma, Vega, Theta) %>%
@@ -347,9 +342,9 @@ p_greeks <- ggplot(greeks_30, aes(x = Strike, y = Value, color = Greek)) +
   theme(plot.title  = element_text(face = "bold"),
         legend.position = "none")
 
-# ================================================================
+
 # SECTION 6: RENDER ALL PLOTS
-# ================================================================
+
 print(p_price)
 print(p_rollvol)
 print(p_garch_fc)
@@ -357,13 +352,9 @@ print(p_compare)
 print(p_vol_comp)
 print(p_diff)
 print(p_greeks)
-
-# ================================================================
+                  
 # SECTION 7: SUMMARY COMPARISON TABLE
-# ================================================================
-cat("\n================================================================\n")
 cat("FINAL COMPARISON: GARCH vs Historical Vol vs IV\n")
-cat("================================================================\n")
 
 summary_tbl <- all_data %>%
   filter(Strike %in% strikes[c(3, 5, 6, 7, 9)]) %>%   # OTM, near, ATM, near, ITM
