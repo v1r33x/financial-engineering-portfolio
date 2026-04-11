@@ -1,6 +1,3 @@
-############################################################
-# 0. LIBRARIES
-############################################################
 library(quantmod)
 library(tidyverse)
 library(tseries)
@@ -8,9 +5,7 @@ library(zoo)
 library(PerformanceAnalytics)
 library(xts)
 
-############################################################
-# 1. DATA
-############################################################
+
 assets <- c("ASML.AS","SAP.DE","SIE.DE","AIR.PA",
             "MC.PA","KER.PA","IFX.DE")
 
@@ -21,9 +16,9 @@ colnames(prices) <- assets
 
 log_prices <- na.omit(log(prices))
 
-############################################################
+
 # 2. ENGLE-GRANGER
-############################################################
+
 engle_granger <- function(y, x) {
   model <- lm(y ~ x)
   resid <- residuals(model)
@@ -32,9 +27,9 @@ engle_granger <- function(y, x) {
   return(c(pval, coef(model)[2]))
 }
 
-############################################################
+
 # 3. FIND PAIRS
-############################################################
+
 pairs <- combn(colnames(log_prices), 2, simplify = FALSE)
 
 res <- data.frame()
@@ -57,9 +52,9 @@ res <- res %>%
 
 print(res)
 
-############################################################
+
 # 4. BACKTEST (SAFE VERSION)
-############################################################
+
 bt <- function(pair, beta, data, tc=0.001) {
   
   p <- strsplit(pair,"-")[[1]]
@@ -103,18 +98,18 @@ bt <- function(pair, beta, data, tc=0.001) {
   return(pnl)
 }
 
-############################################################
+
 # 5. RUN BACKTEST
-############################################################
+
 plist <- list()
 
 for(i in 1:nrow(res)){
   plist[[ res$pair[i] ]] <- bt(res$pair[i], res$beta[i], log_prices)
 }
 
-############################################################
+
 # 6. PORTFOLIO
-############################################################
+
 pnl_all <- Reduce(function(x,y) merge(x,y,all=TRUE), plist)
 
 portfolio <- xts(
@@ -124,9 +119,9 @@ portfolio <- xts(
 
 portfolio <- na.omit(portfolio)
 
-############################################################
+
 # 7. PERFORMANCE
-############################################################
+
 charts.PerformanceSummary(portfolio)
 
 SharpeRatio.annualized(portfolio)
