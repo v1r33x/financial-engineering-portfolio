@@ -1,14 +1,11 @@
-############################################################
+
 # WALK-FORWARD FACTOR MODEL
 # Universe  : European Large-Caps (25 stocks)
 # Factors   : Fama-French 5 + Momentum (12-1)
 # Method    : Rolling 36-month OLS, predict next month alpha
 # Output    : Long-short quintile portfolio, IC analysis
-############################################################
 
-############################################################
 # 0. LIBRARIES
-############################################################
 library(quantmod)
 library(PerformanceAnalytics)
 library(tidyverse)
@@ -16,9 +13,8 @@ library(lubridate)
 library(zoo)
 library(xts)
 
-############################################################
+
 # 1. STOCK UNIVERSE — EUROPEAN LARGE-CAPS
-############################################################
 assets <- c(
   # Technology / Semiconductors
   "ASML.AS", "IFX.DE", "SAP.DE",
@@ -58,14 +54,13 @@ colnames(prices) <- assets
 prices_m <- to.monthly(prices, indexAt = "lastof", OHLC = FALSE)
 prices_m <- na.omit(prices_m)
 
-############################################################
+
 # 2. MONTHLY RETURNS
-############################################################
 ret_m <- na.omit(Return.calculate(prices_m))
 
-############################################################
+
 # 3. FAMA-FRENCH 5 FACTORS — EUROPEAN, MONTHLY
-############################################################
+
 ff_url <- paste0(
   "https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/",
   "ftp/Europe_5_Factors_CSV.zip"
@@ -109,17 +104,15 @@ ff$date <- as.Date(paste0(ff$ym, "01"), "%Y%m%d") %m+% months(1) - 1
 ff_xts <- xts(ff[, c("MktRF","SMB","HML","RMW","CMA","RF")],
               order.by = ff$date)
 
-############################################################
+
 # 4. MOMENTUM FACTOR (12-1 MONTH, CROSS-SECTIONAL)
-############################################################
 # For each stock at month t: return from t-12 to t-2 (skip t-1)
 # Implemented as: 11-month cumulative return ending 2 months ago
 mom <- xts::lag.xts(prices_m, 1) / xts::lag.xts(prices_m, 12) - 1
 colnames(mom) <- assets
 
-############################################################
+
 # 5. ALIGN DATE INDICES
-############################################################
 common_idx <- Reduce(function(a, b) a[a %in% b],
                      list(index(ret_m), index(ff_xts), index(mom)))
 
@@ -130,9 +123,8 @@ mom    <- mom[common_idx, ]
 n_dates  <- length(common_idx)
 n_stocks <- ncol(ret_m)
 
-############################################################
+
 # 6. WALK-FORWARD: ROLLING ALPHA ESTIMATION
-############################################################
 # For each month t, train OLS on [t-36 : t-1], extract alpha per stock.
 # Alpha = expected return unexplained by systematic factors.
 # We rank stocks by alpha → long-short quintile portfolio next month.
@@ -179,9 +171,8 @@ for (t in (TRAIN_WIN + 1):n_dates) {
   }
 }
 
-############################################################
+
 # 7. LONG-SHORT QUINTILE PORTFOLIO
-############################################################
 # At end of month t, rank stocks by estimated alpha → 
 # form portfolio held over month t+1.
 
@@ -219,9 +210,8 @@ port_xts <- na.omit(port_xts)
 ic_xts <- xts(ic_series, order.by = common_idx)
 ic_xts <- na.omit(ic_xts)
 
-############################################################
+
 # 8. IC DECAY ANALYSIS (horizons 1–6 months)
-############################################################
 MAX_H    <- 6
 ic_decay <- rep(NA, MAX_H)
 
@@ -248,9 +238,9 @@ ic_decay_df <- data.frame(
   Mean_IC = round(ic_decay, 4)
 )
 
-############################################################
+
 # 9. PERFORMANCE METRICS
-############################################################
+
 cat("\n========================================\n")
 cat("   WALK-FORWARD FACTOR MODEL RESULTS\n")
 cat("========================================\n\n")
@@ -268,9 +258,8 @@ cat("IC Std Dev        :", round(sd(ic_xts, na.rm = TRUE), 4), "\n\n")
 cat("--- IC Decay by Forecast Horizon ---\n")
 print(ic_decay_df)
 
-############################################################
+
 # 10. PLOTS
-############################################################
 
 # --- Plot 1: Long-Short Portfolio Performance ---
 charts.PerformanceSummary(
@@ -307,21 +296,21 @@ ggplot(ic_decay_df, aes(x = Horizon, y = Mean_IC)) +
   ) +
   theme_minimal()
 
-############################################################
-# END
-############################################################
 
-############################################################
+# END
+
+
+
 # SECTIONS 11–15: EXTENDED ANALYSIS
 # Paste these after Section 10 in your existing script.
 # All sections reuse variables already computed above:
 # alpha_mat, port_xts, ic_xts, ret_m, ff_xts, mom,
 # common_idx, assets, n_dates, n_stocks, TRAIN_WIN
-############################################################
 
-############################################################
+
+
 # 11. TURNOVER ANALYSIS
-############################################################
+
 # Turnover = what fraction of the portfolio gets replaced each month.
 # High turnover means frequent trading, which means high costs in practice.
 # We measure it first so we can use it in Section 12 for cost adjustment.
@@ -381,9 +370,9 @@ ggplot(turnover_df, aes(x = date, y = turnover)) +
   ) +
   theme_minimal()
 
-############################################################
+
 # 12. TRANSACTION COST SENSITIVITY
-############################################################
+
 # We test how much of the strategy's return survives at different
 # transaction cost levels. Cost is paid proportional to turnover —
 # the more we trade, the more we pay.
@@ -442,9 +431,9 @@ ggplot(tc_results, aes(x = Cost_bps, y = Sharpe)) +
   ) +
   theme_minimal()
 
-############################################################
+
 # 13. REGIME-CONDITIONAL PERFORMANCE
-############################################################
+
 # We split every month into a market regime: Bull or Bear.
 # Bull = the broad European market was up over the past 6 months.
 # Bear = the broad European market was down over the past 6 months.
@@ -507,9 +496,8 @@ ggplot(ic_df_regime, aes(x = date, y = IC, color = regime)) +
   ) +
   theme_minimal()
 
-############################################################
+
 # 14. FACTOR CONTRIBUTION — LEAVE-ONE-OUT
-############################################################
 # We re-run the entire walk-forward model 6 times, each time
 # removing one factor from the regression. The drop in mean IC
 # compared to the baseline tells us how much that factor contributes.
@@ -604,9 +592,8 @@ ggplot(loo_results[-1, ], aes(x = reorder(Factor_Dropped, IC_Drop), y = IC_Drop)
   ) +
   theme_minimal()
 
-############################################################
+
 # 15. OUT-OF-SAMPLE TEST — FTSE 100 SUBSET
-############################################################
 # We run the exact same model with the exact same parameters
 # on a completely different universe: UK large-caps from the FTSE 100.
 # No parameter changes are allowed — we use whatever worked in-sample.
