@@ -1,20 +1,19 @@
-############################################################
+
 # STOCHASTIC MORTALITY MODELLING & LIFE INSURER ALM
 # Countries  : Belgium, UK, Netherlands
 # Models     : Lee-Carter + Cairns-Blake-Dowd (CBD)
 # Application: Life insurer solvency under Solvency II stress
-############################################################
 
-############################################################
+
+
 # 0. LIBRARIES
-############################################################
+
 library(tidyverse)      # data manipulation and plotting
 library(ggplot2)        # plots
 library(scales)         # axis formatting
 
-############################################################
+
 # 1. LOAD MORTALITY DATA FROM LOCAL FILES
-############################################################
 # HMD files were downloaded manually from mortality.org
 # Mx_1x1 = death rates by single year of age and single calendar year
 
@@ -40,9 +39,8 @@ cat("Belgium rows:", nrow(bel), "\n")
 cat("UK rows:",      nrow(uk),  "\n")
 cat("NLD rows:",     nrow(nld), "\n")
 
-############################################################
+
 # 2. PREPARE DATA — FILTER AGES AND YEARS
-############################################################
 # Focus on ages 50-90 and years 1970-2020.
 # Ages below 50 are less relevant for life insurance liability modelling.
 # Log death rates are used because they are more symmetric and
@@ -89,9 +87,9 @@ cat("NLD matrix dim:",     dim(log_mx[["Netherlands"]]), "\n")
 
 country_names <- c("Belgium", "UK", "Netherlands")
 
-############################################################
+
 # 3. LEE-CARTER MODEL
-############################################################
+
 # The Lee-Carter model decomposes log mortality as:
 # log(mx[x,t]) = ax + bx * kt + error
 #
@@ -144,9 +142,9 @@ names(lc_fits) <- country_names
 
 cat("Lee-Carter fitted for all countries.\n")
 
-############################################################
+
 # 4. CBD MODEL
-############################################################
+
 # The Cairns-Blake-Dowd model (2006) is designed for ages 50+.
 # It models the logit of death probability:
 # logit(qx[x,t]) = k1t + k2t * (x - xbar)
@@ -200,9 +198,9 @@ names(cbd_fits) <- country_names
 
 cat("CBD fitted for all countries.\n")
 
-############################################################
+
 # 5. MODEL COMPARISON — FITTING ERROR AND AIC
-############################################################
+
 # RMSE = Root Mean Squared Error — average prediction error (lower = better)
 # AIC  = Akaike Information Criterion — penalises complexity (lower = better)
 
@@ -252,9 +250,9 @@ for (cn in country_names) {
 cat("\n--- Model Comparison: Lee-Carter vs CBD ---\n")
 print(comparison_df, row.names = FALSE)
 
-############################################################
+
 # 6. MORTALITY PROJECTIONS WITH UNCERTAINTY
-############################################################
+
 # Project 30 years forward by simulating future kt (LC) and
 # k1t, k2t (CBD) as random walks with drift.
 # Random walk with drift: next = current + drift + Normal(0, sigma)
@@ -352,9 +350,8 @@ names(lc_proj)  <- country_names
 names(cbd_proj) <- country_names
 cat("Done.\n")
 
-############################################################
+
 # 7. LIFE INSURER PORTFOLIO
-############################################################
 # Stylized whole-life insurer:
 # 1000 policyholders aged 50-80, EUR 100k death benefit each.
 # Liability = present value of all future expected death payments.
@@ -425,9 +422,8 @@ cat("Base Liability (EUR):", format(round(L_base), big.mark = ","), "\n")
 cat("Assets (EUR)        :", format(round(ASSETS),  big.mark = ","), "\n")
 cat("Base Solvency Ratio :", round(ASSETS / L_base * 100, 1), "%\n")
 
-############################################################
+
 # 8. SOLVENCY II STRESS TESTING
-############################################################
 # Solvency II requires capital sufficient to survive a 1-in-200 year event.
 # Mortality stress: +15% death rates (people die faster than projected)
 # Interest rate stress: -1% discount rate (raises PV of liabilities)
@@ -472,9 +468,8 @@ cat("   SOLVENCY II STRESS TEST RESULTS\n")
 cat("========================================\n\n")
 print(scenarios, row.names = FALSE)
 
-############################################################
+
 # 9. PLOTS
-############################################################
 
 # --- Plot 1: Historical log death rates by country at age 65 ---
 age_plot <- 65
@@ -587,18 +582,15 @@ ggplot(comp_long, aes(x = Country, y = RMSE, fill = Model)) +
        x = NULL, y = "Root Mean Squared Error") +
   theme_minimal()
 
-############################################################
+
 # END
-############################################################
-############################################################
 # SECTIONS 10–12: EXTENDED ANALYSIS
 # Paste these after Section 9 in your existing script.
 # All sections reuse variables already computed above.
-############################################################
 
-############################################################
+
+
 # 10. LONGEVITY VAR — 99.5TH PERCENTILE LIABILITY
-############################################################
 # Instead of a fixed +15% shock, we compute the liability at the
 # 99.5th percentile of all 1,000 simulated mortality paths.
 # The 99.5th percentile means: in only 1 out of 200 years would
@@ -666,9 +658,8 @@ ggplot(sim_lib_df, aes(x = Liability)) +
   ) +
   theme_minimal()
 
-############################################################
+
 # 11. MULTI-COUNTRY LIABILITY COMPARISON
-############################################################
 # We run the same insurer portfolio under UK and Netherlands
 # mortality assumptions to show how geography affects liability.
 # A UK insurer holding the same policies faces a different liability
@@ -739,9 +730,8 @@ ggplot(sol_long, aes(x = Country, y = Solvency_Ratio, fill = Scenario)) +
   ) +
   theme_minimal()
 
-############################################################
+
 # 12. MORTALITY IMPROVEMENT TREND BY DECADE
-############################################################
 # We measure how much mortality improved in each decade from 1970 to 2020.
 # Improvement rate at age x in decade d =
 #   (log mx at end of decade - log mx at start of decade) / 10
